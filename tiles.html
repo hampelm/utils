@@ -1,0 +1,173 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+  integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+  crossorigin=""/>
+
+      <!-- Make sure you put this AFTER Leaflet's CSS -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+    integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+    crossorigin=""></script>
+
+    <style type="text/css">
+      body, html, #map { 
+        padding: 0;
+        margin: 0;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      #tilebar { 
+        position: absolute;
+        right: 1rem;
+        top: 1rem;
+        background-color: #fff;
+        padding: 1rem;
+        z-index: 9999;
+        max-width: 250px;
+      }
+
+      #tilebar input { 
+        width: 100%;
+        margin-bottom: 0.2rem;
+      }
+
+      .parts { 
+        display: flex;
+        gap: 0.2rem;
+      }
+
+      #tilebar input.mini {
+        width: 30%;
+        flex: 1;
+      }
+    </style>
+
+  </head>
+
+  <body>
+    <div id="map"></div>
+
+    <div id="tilebar">
+      <input type="text" name="path" id="path" placeholder="/z/x/y" />
+
+      <div class="parts">
+        <input type="text" name="z" id="z" placeholder="z" class="mini" />
+        <input type="text" name="x" id="x" placeholder="x" class="mini" />
+        <input type="text" name="y" id="y" placeholder="y" class="mini" />
+      </div>
+    </div>
+  </body>
+  
+  <script type="text/javascript">
+    var map = L.map('map').setView([51.505, -0.09], 13);
+
+    var tileLayer = L.geoJSON().addTo(map);
+
+    const tile = {
+    }
+
+    const tilelayer = 'http://stamen-tiles-d.a.ssl.fastly.net/toner/{z}/{x}/{y}@2x.png'
+    L.tileLayer(tilelayer, {
+      attribution: 'Stamen',
+      maxZoom: 18,
+    }).addTo(map);
+
+    function handleInput(e) {
+      console.log(e)
+      const part = e.target.id;
+      const value = e.target.value;
+
+      if (part == 'path') {
+        const tileRegex = /(\d+)\/(\d+)\/(\d+)/
+        const parts = value.match(tileRegex)
+        if (parts && parts.length > 1)  {
+          tile.z = parts[1]
+          tile.x = parts[2]
+          tile.y = parts[3]
+        }
+      } else {
+        tile[part] = value
+      }
+
+      console.log(tile)
+
+      document.getElementById('path').value = `${tile.z || 0}/${tile.x || 0}/${tile.y || 0}`
+      if (tile.z) { document.getElementById('z').value = tile.z }
+      if (tile.x) { document.getElementById('x').value = tile.x }
+      if (tile.y) { document.getElementById('y').value = tile.y }
+
+      if (tile.z && tile.x && tile.y) {
+        tileLayer.clearLayers()
+        console.log("Using", [tile.x, tile.y, tile.z])
+        tileLayer.addData(tileToGeoJSON([tile.x, tile.y, tile.z].map(Number)))
+        map.fitBounds(tileLayer.getBounds());
+
+      }
+    }
+
+
+    document.querySelector("#path").addEventListener("input", handleInput);
+    document.querySelector("#z").addEventListener("input", handleInput);
+    document.querySelector("#x").addEventListener("input", handleInput);
+    document.querySelector("#y").addEventListener("input", handleInput);
+
+    // Stolen from tilebelt https://github.com/mapbox/tilebelt
+    var d2r = Math.PI / 180,
+        r2d = 180 / Math.PI;
+
+    /**
+    * Get the bbox of a tile
+    *
+    * @name tileToBBOX
+    * @param {Array<number>} tile
+    * @returns {Array<number>} bbox
+    * @example
+    * var bbox = tileToBBOX([5, 10, 10])
+    * //=bbox
+    */
+    function tileToBBOX(tile) {
+        var e = tile2lon(tile[0] + 1, tile[2]);
+        var w = tile2lon(tile[0], tile[2]);
+        var s = tile2lat(tile[1] + 1, tile[2]);
+        var n = tile2lat(tile[1], tile[2]);
+        return [w, s, e, n];
+    }
+
+    /**
+      * Get a geojson representation of a tile
+      *
+      * @name tileToGeoJSON
+      * @param {Array<number>} tile
+      * @returns {Feature<Polygon>}
+      * @example
+      * var poly = tileToGeoJSON([5, 10, 10])
+      * //=poly
+      */
+      function tileToGeoJSON(tile) {
+          var bbox = tileToBBOX(tile);
+          var poly = {
+              type: 'Polygon',
+              coordinates: [[
+                  [bbox[0], bbox[3]],
+                  [bbox[0], bbox[1]],
+                  [bbox[2], bbox[1]],
+                  [bbox[2], bbox[3]],
+                  [bbox[0], bbox[3]]
+              ]]
+          };
+          return poly;
+      }
+
+      function tile2lon(x, z) {
+          return x / Math.pow(2, z) * 360 - 180;
+      }
+
+      function tile2lat(y, z) {
+          var n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+          return r2d * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+      }
+
+  </script>
+
+</html>
